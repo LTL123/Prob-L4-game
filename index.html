@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>概率小球游戏</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* 改为flex-start以防内容过多时垂直居中导致顶部被截断 */
+            min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            width: 90%;
+            max-width: 700px; /* 适当增加最大宽度 */
+            text-align: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 20px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: background-color 0.3s ease;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        input[type="number"], input[type="text"] {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 15px;
+            width: calc(100% - 20px); /* 适应父容器宽度 */
+            max-width: 120px; /* 限制最大宽度 */
+            box-sizing: border-box;
+        }
+        label {
+            margin-right: 8px;
+            font-size: 15px;
+        }
+        #controls, .settings, #guessArea, #probabilityDisplay {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .ball-count-display {
+            /* position: absolute; */ /* 不再需要绝对定位 */
+            /* bottom: 20px; */
+            /* left: 50%; */
+            /* transform: translateX(-50%); */
+            color: #333; /* 更改为深色，以便在半透明背景下更清晰 */
+            font-size: 24px; /* 增大字体 */
+            font-weight: bold;
+            z-index: 1; /* 确保在小球上方 */
+            text-shadow: 0 1px 2px rgba(255, 255, 255, 0.5); /* 调整文字阴影 */
+        }
+        .control {
+            text-align: center;
+            margin: 20px;
+        }
+        input, button {
+            margin: 5px;
+            padding: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>概率小球猜测游戏</h1>
+        <div id="bag" class="bag-container"></div> <!-- 添加袋子容器 -->
+        <div class="control">
+        <div class="settings">
+            <div id="controls">
+                <p>初始设置：</p>
+                <label for="colorCount">小球颜色种类 (1-4):</label>
+                <input type="number" id="colorCount" value="2" min="1" max="4">
+                <label for="initialCount">小球总数量:</label>
+                <input type="number" id="initialCount" value="10" min="1">
+                <button onclick="initBag()">初始化袋子</button>
+                <button onclick="location.reload()">重置游戏</button> <!-- 新增重置按钮 -->
+            </div>
+        <p>当前袋中小球总数：<span id="totalCount">0</span></p>
+        <input type="number" id="takeNum" placeholder="输入取出数量" min="1">
+        <button onclick="takeBalls()">取出并放回</button>
+        <div id="guessArea" style="display: none;">
+            <p>取出的小球：</p>
+            <div id="takenBallsDisplay" style="margin: 10px; display: flex; gap: 10px;"></div>
+            <div id="probabilityDisplay" style="margin-top: 15px;"></div> <!-- 新增用于显示概率的div -->
+            <p>请猜测袋中各种颜色小球的数量:</p>
+            <div id="colorGuessInputsContainer"></div> <!-- 用于动态添加颜色数量输入框的容器 -->
+            <!-- <input type="text" id="guessInput"> --> <!-- 旧的单个输入框，将被替换 -->
+            <button onclick="checkGuess()">提交猜测</button>
+            <p id="result"></p>
+            <img id="celebrationGif" src="" alt="Celebration" style="display: none; margin-top: 20px; max-width: 100%; border-radius: 5px;">
+        </div>
+    </div>
+    </div>
+    <script>
+        let balls = []; // 存储小球颜色和位置
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        let selectedColorsInGame = []; // 存储当前游戏中实际使用的颜色
+        const bagElement = document.getElementById('bag'); // 获取袋子元素
+
+        // 初始化袋子
+        function initBag() {
+            const colorCount = Math.min(Math.max(parseInt(document.getElementById('colorCount').value) || 2, 1), 4); // 限制1-4种颜色
+            const total = Math.max(parseInt(document.getElementById('initialCount').value) || 10, 1); // 至少1个小球
+            balls = []; // 重置小球数组
+            selectedColorsInGame = colors.slice(0, colorCount); // 更新当前游戏中使用的颜色
+            for(let i=0; i<total; i++){
+                const color = selectedColorsInGame[Math.floor(Math.random()*selectedColorsInGame.length)];
+                balls.push({ color }); // 只存储颜色信息
+            }
+            renderBallsInBagDOM(); // 在袋子中渲染小球的DOM
+            updateBallCountDisplay(); // 更新数量显示
+        }
+
+        // 在袋子中渲染小球的DOM
+        function renderBallsInBagDOM() {
+            bagElement.innerHTML = ''; // 清空袋子
+            balls.forEach(ballData => {
+                const ballDiv = document.createElement('div');
+                ballDiv.className = 'ball';
+                // ballDiv.style.backgroundColor = ballData.color; // 不再显示真实颜色
+                ballDiv.style.backgroundColor = '#ccc'; // 袋中的小球统一显示灰色
+                // 在袋子内随机定位小球
+                const bagWidth = bagElement.clientWidth;
+                const bagHeight = bagElement.clientHeight;
+                const ballSize = 30; // 与CSS中的ball大小一致
+                ballDiv.style.left = Math.random() * (bagWidth - ballSize) + 'px';
+                ballDiv.style.top = Math.random() * (bagHeight - ballSize) + 'px';
+                bagElement.appendChild(ballDiv);
+            });
+        }
+
+        // 更新小球数量显示
+        function updateBallCountDisplay() {
+            // 更新页面上其他地方的总数显示
+            document.getElementById('totalCount').textContent = balls.length;
+        }
+
+        // 渲染小球（用于取出小球时的显示，保留颜色）
+        function renderTakenBalls(takenColors) {
+            const display = document.getElementById('takenBallsDisplay');
+            display.innerHTML = '';
+            takenColors.forEach(color => {
+                const ball = document.createElement('div');
+                ball.className = 'ball';
+                ball.style.backgroundColor = color;
+                ball.style.position = 'relative'; // 取消绝对定位
+                display.appendChild(ball);
+            });
+        }
+
+        // 取出小球逻辑
+        function takeBalls() {
+            const takeNum = parseInt(document.getElementById('takeNum').value);
+            if(isNaN(takeNum) || takeNum < 1 || takeNum > balls.length){
+                alert('请输入1到'+balls.length+'之间的有效数字');
+                return;
+            }
+            // 随机选取不重复的小球索引
+            const indices = [];
+            while(indices.length < takeNum){
+                const randomIdx = Math.floor(Math.random() * balls.length);
+                if(!indices.includes(randomIdx)) indices.push(randomIdx);
+            }
+            const takenColors = indices.map(i => balls[i].color);
+            // 渲染取出的小球图像
+            renderTakenBalls(takenColors); // 调用新的渲染函数
+            // alert(`你取出了${takeNum}个小球，已放回`); // 暂时注释掉alert，因为现在有视觉反馈
+            document.getElementById('guessArea').style.display = 'block';
+            generateColorGuessInputs(); // 生成颜色猜测输入框
+            calculateAndDisplayProbability(takenColors, balls.length);
+            // 注意：由于是“取出并放回”，袋子中的小球DOM不需要改变，数量也不变
+            // 如果是取出不放回，则需要在这里调用 renderBallsInBagDOM() 和 updateBallCountDisplay()
+        }
+
+        // 辅助函数：计算阶乘 n!
+        function factorial(n) {
+            if (n < 0) return 0; // 或者抛出错误
+            if (n === 0 || n === 1) return 1;
+            let result = 1;
+            for (let i = 2; i <= n; i++) {
+                result *= i;
+            }
+            return result;
+        }
+
+        // 辅助函数：计算组合数 C(n, k) = n! / (k! * (n-k)!)
+        function combinations(n, k) {
+            if (k < 0 || k > n) {
+                return 0;
+            }
+            if (k === 0 || k === n) {
+                return 1;
+            }
+            if (k > n / 2) {
+                k = n - k; // C(n, k) == C(n, n-k)
+            }
+            // 使用公式 C(n,k) = product_{i=1 to k} (n-i+1)/i 来避免大数阶乘
+            let res = 1;
+            for (let i = 1; i <= k; i++) {
+                res = res * (n - i + 1) / i;
+            }
+            return res;
+        }
+
+        // 计算并显示概率的函数
+        function calculateAndDisplayProbability(takenColorsSample, totalBallsInBag) {
+            const probabilityDiv = document.getElementById('probabilityDisplay');
+            probabilityDiv.innerHTML = '<h3>基于本次取出小球的概率估算：</h3>';
+            const takenRedCount = takenColorsSample.filter(color => color === 'red').length;
+            const sampleSize = takenColorsSample.length;
+
+            if (sampleSize === 0) {
+                probabilityDiv.innerHTML += '<p>请先取出小球进行采样。</p>';
+                return;
+            }
+
+            let outputHTML = '<ul>';
+            let probabilities = [];
+            let sumOfLikelihoods = 0;
+
+            // 对于每一种可能的袋中红球数量 (numRedInBag)，计算P(观察到当前样本 | 袋中有numRedInBag个红球)
+            for (let numRedInBag = 0; numRedInBag <= totalBallsInBag; numRedInBag++) {
+                // 需要确保 numRedInBag >= takenRedCount (袋中红球数不能少于抽出的红球数)
+                // 且 totalBallsInBag - numRedInBag >= sampleSize - takenRedCount (袋中其他颜色球数不能少于抽出的其他颜色球数)
+                if (numRedInBag < takenRedCount || (totalBallsInBag - numRedInBag) < (sampleSize - takenRedCount)) {
+                    probabilities.push({ numRed: numRedInBag, prob: 0 });
+                    continue;
+                }
+
+                const waysToChooseRed = combinations(numRedInBag, takenRedCount);
+                const waysToChooseOthers = combinations(totalBallsInBag - numRedInBag, sampleSize - takenRedCount);
+                const totalWaysToChooseSample = combinations(totalBallsInBag, sampleSize);
+
+                let likelihood = 0;
+                if (totalWaysToChooseSample > 0) {
+                    likelihood = (waysToChooseRed * waysToChooseOthers) / totalWaysToChooseSample;
+                }
+                probabilities.push({ numRed: numRedInBag, prob: likelihood });
+                sumOfLikelihoods += likelihood;
+            }
+
+            // 归一化似然值得到后验概率的近似（假设所有袋中红球数的先验概率相同）
+            if (sumOfLikelihoods > 0) {
+                probabilities.forEach(p => {
+                    const normalizedProb = (p.prob / sumOfLikelihoods) * 100;
+                    outputHTML += `<li>袋中包含 ${p.numRed} 个红色小球的概率：${normalizedProb.toFixed(2)}%</li>`;
+                });
+            } else if (probabilities.length > 0) {
+                 // 如果所有似然都为0（例如，抽样与任何假设都不符，理论上不应发生，除非combinations实现或逻辑问题）
+                 // 或者只有一种可能且其似然为0
+                outputHTML += '<li>无法计算有效的概率分布。可能是抽样结果与所有假设都不符。</li>';
+                 probabilities.forEach(p => { // 仍然显示原始计算的（可能为0的）似然
+                    outputHTML += `<li>袋中包含 ${p.numRed} 个红色小球的（未归一化）似然：${(p.prob * 100).toFixed(2)}%</li>`;
+                });
+            } else {
+                outputHTML += '<li>没有有效假设可以评估。</li>';
+            }
+
+           // outputHTML += '</ul>';
+           // outputHTML += '<p><small>注意：这是一个基于超几何分布的概率估算，假设所有可能的袋中红球数量的先验概率相同。</small></p>';
+            probabilityDiv.innerHTML += outputHTML;
+        }
+
+        // 生成颜色猜测输入框的函数
+        function generateColorGuessInputs() {
+            const container = document.getElementById('colorGuessInputsContainer');
+            container.innerHTML = ''; // 清空旧的输入框
+            selectedColorsInGame.forEach(color => {
+                const label = document.createElement('label');
+                label.textContent = `${color.charAt(0).toUpperCase() + color.slice(1)}: `;
+                label.style.marginRight = '5px';
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `guessInput-${color}`;
+                input.placeholder = `数量`;
+                input.min = '0';
+                input.style.width = '60px';
+                input.style.marginRight = '10px';
+                container.appendChild(label);
+                container.appendChild(input);
+            });
+        }
+
+        // 验证猜测
+        function checkGuess() {
+            // const guess = document.getElementById('guessInput').value; // 旧的读取方式
+            const countMap = {};
+            balls.forEach(ball => {
+                countMap[ball.color] = (countMap[ball.color] || 0) + 1;
+            });
+
+            const userGuess = {};
+            let allInputsValid = true;
+            selectedColorsInGame.forEach(color => {
+                const inputElement = document.getElementById(`guessInput-${color}`);
+                const guessedAmount = parseInt(inputElement.value);
+                if (isNaN(guessedAmount) || guessedAmount < 0) {
+                    allInputsValid = false;
+                }
+                userGuess[color] = guessedAmount || 0; // 如果无效或为空，则视为0
+            });
+
+            if (!allInputsValid) {
+                alert('请输入有效的数量（非负整数）。');
+                document.getElementById('celebrationGif').style.display = 'none'; // 确保GIF隐藏
+                return;
+            }
+
+            try {
+                // const userGuess = Object.fromEntries(
+                //     guess.split(',').map(item => item.split(':'))
+                // ); // 旧的解析方式
+                let correct = true;
+                let resultText = '正确数量：';
+                // 遍历所有可能的颜色，而不仅仅是游戏中选择的颜色，以防万一
+                colors.forEach(color => {
+                    const actual = countMap[color] || 0;
+                    const guessed = userGuess[color] || 0; // 如果用户没有为某种颜色输入，则视为0
+                    if (selectedColorsInGame.includes(color)) { // 只在结果中显示游戏中实际使用的颜色
+                         resultText += `${color.charAt(0).toUpperCase() + color.slice(1)}:${actual} `;
+                    }
+                    if(guessed !== actual) correct = false;
+                });
+
+                // 确保比较时也考虑到游戏中未选择的颜色，其数量应为0
+                for (const color of colors) {
+                    if (!selectedColorsInGame.includes(color)) {
+                        if ((userGuess[color] || 0) !== 0) {
+                            correct = false;
+                            break;
+                        }
+                    }
+                }
+
+                document.getElementById('result').textContent = correct ? '恭喜！猜测正确！' : '猜错了，'+resultText.trim();
+            } catch(e) {
+                // 这个catch理论上不太会触发了，因为输入是结构化的
+                alert('处理猜测时发生错误。');
+                console.error("Error checking guess: ", e);
+            }
+        }
+
+        // 游戏开始
+        // initBag(); // 页面加载时不再自动初始化，等待用户点击按钮
+        // 或者，如果希望保留页面加载时初始化，但使用新的渲染逻辑：
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // initBag(); // 确保在DOM加载完毕后执行, 用户点击按钮初始化
+        });
+    </script>
+</body>
+</html>
