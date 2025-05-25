@@ -4,64 +4,28 @@
     <meta charset="UTF-8">
     <title>概率小球游戏</title>
     <style>
-        body {
-            font-family: 'Arial', sans-serif;
-            background-color: #f0f2f5;
-            color: #333;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start; /* 改为flex-start以防内容过多时垂直居中导致顶部被截断 */
-            min-height: 100vh;
-        }
         .container {
-            background-color: #fff;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            width: 90%;
-            max-width: 700px; /* 适当增加最大宽度 */
-            text-align: center;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
         }
-        h1 {
-            color: #2c3e50;
-            margin-bottom: 20px;
+        .ball {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            position: absolute;
+            /* opacity: 1; */ /* 移除或注释掉，以便在renderBalls中控制 */
+            background-color: #ccc; /* 给小球一个默认的灰色背景，不显示颜色 */
+            transition: all 0.3s;
         }
-        button {
-            background-color: #3498db;
-            color: white;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-            margin: 5px;
-            transition: background-color 0.3s ease;
-        }
-        button:hover {
-            background-color: #2980b9;
-        }
-        input[type="number"], input[type="text"] {
-            padding: 8px;
-            margin: 5px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            font-size: 15px;
-            width: calc(100% - 20px); /* 适应父容器宽度 */
-            max-width: 120px; /* 限制最大宽度 */
-            box-sizing: border-box;
-        }
-        label {
-            margin-right: 8px;
-            font-size: 15px;
-        }
-        #controls, .settings, #guessArea, #probabilityDisplay {
-            margin-bottom: 20px;
-            padding: 15px;
-            border: 1px solid #e0e0e0;
-            border-radius: 8px;
-            background-color: #f9f9f9;
+        .bag-container {
+            width: 300px; /* 袋子的宽度 */
+            height: 200px; /* 袋子的高度 */
+            background-color: rgba(200, 200, 200, 0.5); /* 半透明灰色背景 */
+            border: 2px dashed #666;
+            position: relative; /* 用于小球的绝对定位 */
+            margin: 20px auto; /* 居中显示 */
+            overflow: hidden; /* 如果小球过多，超出部分隐藏 */
         }
         .ball-count-display {
             /* position: absolute; */ /* 不再需要绝对定位 */
@@ -111,7 +75,6 @@
             <!-- <input type="text" id="guessInput"> --> <!-- 旧的单个输入框，将被替换 -->
             <button onclick="checkGuess()">提交猜测</button>
             <p id="result"></p>
-            <img id="celebrationGif" src="" alt="Celebration" style="display: none; margin-top: 20px; max-width: 100%; border-radius: 5px;">
         </div>
     </div>
     </div>
@@ -326,7 +289,6 @@
 
             if (!allInputsValid) {
                 alert('请输入有效的数量（非负整数）。');
-                document.getElementById('celebrationGif').style.display = 'none'; // 确保GIF隐藏
                 return;
             }
 
